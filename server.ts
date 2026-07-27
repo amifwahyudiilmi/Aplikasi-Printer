@@ -31,7 +31,7 @@ app.post('/api/parse-receipt', async (req, res) => {
       });
     }
 
-    const ai = new GoogleGenAI({apiKey: "AQ.Ab8RN6L-UuCf8h3AD6XxBGsLGZz9S2CWfWNoS9zk8-FHyF_UPw"});
+    const ai = new GoogleGenAI({apiKey: process.env.GEMINI_API_KEY,});
 
     const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
 
@@ -57,7 +57,7 @@ Data yang WAJIB diekstrak:
 Sangat penting: Objek JSON harus valid tanpa teks markdown pembungkus tambahan.`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.5-flash',
       contents: {
         parts: [
           {
