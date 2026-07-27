@@ -31,7 +31,7 @@ app.post('/api/parse-receipt', async (req, res) => {
       });
     }
 
-    const ai = new GoogleGenAI({apiKey});
+    const ai = new GoogleGenAI({apiKey: "AQ.Ab8RN6L-UuCf8h3AD6XxBGsLGZz9S2CWfWNoS9zk8-FHyF_UPw"});
 
     const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
 
