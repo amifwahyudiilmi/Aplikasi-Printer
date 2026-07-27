@@ -1,0 +1,6 @@
+{
+  "name": "AI Thermal Receipt Scanner & Printer PWA",
+  "description": "Aplikasi PWA untuk membaca resi bank dengan Gemini AI Vision, mengedit data, dan mencetak langsung ke printer thermal Bluetooth via Web Bluetooth ESC/POS",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

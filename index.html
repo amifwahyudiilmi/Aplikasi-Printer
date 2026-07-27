@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full bg-slate-100 text-slate-800">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>AI Thermal Receipt Scanner & Bluetooth Printer</title>
+
+  <!-- PWA Manifest & Theme -->
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#2563eb" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="ReceiptPrinter" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            mono: ['Courier New', 'Courier', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    /* Thermal Receipt Zigzag Edge Simulation */
+    .receipt-paper {
+      position: relative;
+      background-color: #ffffff;
+      color: #111827;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    }
+    .receipt-paper::before,
+    .receipt-paper::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 8px;
+      background-size: 14px 14px;
+    }
+    .receipt-paper::before {
+      top: -8px;
+      background-image: radial-gradient(circle at 7px -3px, transparent 7px, #ffffff 8px);
+    }
+    .receipt-paper::after {
+      bottom: -8px;
+      background-image: radial-gradient(circle at 7px 11px, transparent 7px, #ffffff 8px);
+    }
+  </style>
+</head>
+<body class="min-h-full flex flex-col font-sans antialiased selection:bg-blue-500 selection:text-white pb-8">
+
+  <!-- Header Navigation -->
+  <header class="sticky top-0 z-30 bg-slate-900 text-white border-b border-slate-800 px-4 py-2.5 shadow-md">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-lg bg-blue-600 text-white font-black flex items-center justify-center text-sm shadow-sm">
+          T
+        </div>
+        <div>
+          <h1 class="font-bold text-base text-white leading-tight flex items-center gap-1.5">
+            ThermalPrint PWA <span class="font-normal text-xs text-slate-400">v2.1</span>
+          </h1>
+          <p class="text-[11px] text-slate-400">Gemini Vision OCR & Direct ESC/POS Web Bluetooth</p>
+        </div>
+      </div>
+
+      <!-- Action Badges & Buttons -->
+      <div class="flex items-center gap-2 flex-wrap">
+        <span id="printerStatusBadge" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700">
+          <span class="w-2 h-2 rounded-full bg-slate-400 animate-pulse"></span>
+          <span id="printerStatusText">Belum Terhubung</span>
+        </span>
+
+        <button id="btnInstallPWA" class="hidden px-2.5 py-1 text-xs font-semibold rounded-md bg-emerald-600 text-white hover:bg-emerald-500 transition-all flex items-center gap-1">
+          <i data-lucide="download" class="w-3.5 h-3.5"></i>
+          <span>Install PWA</span>
+        </button>
+
+        <button id="btnHelp" class="p-1.5 rounded-md bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700 transition-all" title="Panduan Penggunaan">
+          <i data-lucide="help-circle" class="w-4 h-4"></i>
+        </button>
+
+        <button id="btnSettings" class="p-1.5 rounded-md bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700 transition-all" title="Pengaturan API Key">
+          <i data-lucide="settings" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Workspace Layout -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 space-y-4">
+
+    <!-- Section Title 1: Upload & Quick Demo -->
+    <section class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+      <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 mb-3">
+        <div>
+          <h2 class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+            <i data-lucide="scan-line" class="w-4 h-4 text-blue-600"></i>
+            <span>1. Upload atau Foto Resi</span>
+          </h2>
+          <p class="text-xs text-slate-600 mt-0.5">Upload bukti transfer (PNG/JPG) untuk diekstrak otomatis oleh Gemini AI Vision.</p>
+        </div>
+
+        <!-- Quick Demo Receipt Buttons -->
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <span class="text-xs text-slate-400 font-medium">Coba Resi Demo:</span>
+          <button data-sample="bca" class="btn-sample px-2 py-0.5 text-xs font-semibold rounded bg-slate-100 hover:bg-blue-50 text-blue-700 border border-slate-200 transition-all">
+            BCA
+          </button>
+          <button data-sample="qris" class="btn-sample px-2 py-0.5 text-xs font-semibold rounded bg-slate-100 hover:bg-emerald-50 text-emerald-700 border border-slate-200 transition-all">
+            QRIS
+          </button>
+          <button data-sample="mandiri" class="btn-sample px-2 py-0.5 text-xs font-semibold rounded bg-slate-100 hover:bg-amber-50 text-amber-700 border border-slate-200 transition-all">
+            Mandiri
+          </button>
+        </div>
+      </div>
+
+      <!-- Dropzone -->
+      <div id="dropZone" class="border-2 border-dashed border-slate-200 hover:border-blue-500 rounded-lg p-5 text-center transition-all bg-slate-50 cursor-pointer">
+        <input type="file" id="fileInput" accept="image/png,image/jpeg,image/jpg" class="hidden" />
+        <input type="file" id="cameraInput" accept="image/*" capture="environment" class="hidden" />
+
+        <div class="flex flex-col items-center justify-center space-y-2">
+          <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
+            <i data-lucide="upload-cloud" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <p class="text-xs font-semibold text-slate-700">Tarik & Lepas file gambar resi di sini, atau pilih dari HP/PC</p>
+            <p class="text-[11px] text-slate-400 mt-0.5">PNG, JPG, JPEG (Maksimal 10MB)</p>
+          </div>
+
+          <div class="flex items-center gap-2 pt-1">
+            <button id="uploadBtn" class="px-3 py-1.5 text-xs font-semibold rounded-md bg-blue-600 hover:bg-blue-700 text-white transition-all shadow-sm flex items-center gap-1.5">
+              <i data-lucide="image" class="w-3.5 h-3.5"></i>
+              <span>Pilih Gambar File</span>
+            </button>
+            <button id="cameraBtn" class="px-3 py-1.5 text-xs font-semibold rounded-md bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 transition-all flex items-center gap-1.5">
+              <i data-lucide="camera" class="w-3.5 h-3.5"></i>
+              <span>Kamera Langsung</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Two-Column Grid: Form & Thermal Live Preview -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+
+      <!-- Left Column: Image Preview & Interactive Form Editor (7 cols) -->
+      <div class="lg:col-span-7 space-y-4">
+
+        <!-- Image Preview Card (hidden by default) -->
+        <div id="imagePreviewContainer" class="hidden bg-white border border-slate-200 rounded-xl p-3 shadow-sm">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="file-image" class="w-3.5 h-3.5 text-blue-600"></i>
+              <span>Gambar Resi Terupload</span>
+            </h3>
+          </div>
+          <div class="rounded-lg overflow-hidden max-h-56 bg-slate-100 flex items-center justify-center p-2 border border-slate-200">
+            <img id="imagePreview" src="" alt="Preview Resi" class="max-h-52 object-contain rounded" />
+          </div>
+        </div>
+
+        <!-- Receipt Form Editor -->
+        <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+            <div>
+              <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                <i data-lucide="edit-3" class="w-4 h-4 text-blue-600"></i>
+                <span>2. Hasil Ekstraksi Data</span>
+              </h3>
+            </div>
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+              Gemini Vision AI
+            </span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <!-- Bank / Service -->
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 mb-0.5">Nama Bank / Layanan</label>
+              <input type="text" id="input_bankName" class="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md text-slate-800 focus:border-blue-600 focus:bg-white focus:outline-none" placeholder="Contoh: BANK BCA" />
+            </div>
+
+            <!-- Transaction Type -->
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 mb-0.5">Jenis Transaksi</label>
+              <input type="text" id="input_transactionType" class="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md text-slate-800 focus:border-blue-600 focus:bg-white focus:outline-none" placeholder="Contoh: TRANSFER BANK" />
+            </div>
+
+            <!-- Date & Time -->
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 mb-0.5">Tanggal & Waktu</label>
+              <input type="text" id="input_dateTime" class="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md text-slate-800 focus:border-blue-600 focus:bg-white focus:outline-none" placeholder="27 Jul 2026 14:30 WIB" />
+            </div>
+
+            <!-- Ref Number -->
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 mb-0.5">No. Referensi / ID</label>
+              <input type="text" id="input_refNumber" class="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md text-slate-800 focus:border-blue-600 focus:bg-white focus:outline-none" placeholder="123456789" />
+            </div>
+
+            <!-- Sender Name -->
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 mb-0.5">Nama Pengirim</label>
+              <input type="text" id="input_senderName" class="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md text-slate-800 focus:border-blue-600 focus:bg-white focus:outline-none" placeholder="Nama Pengirim" />
+            </div>
+
+            <!-- Sender Account -->
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 mb-0.5">No. Rek / Akun Pengirim</label>
+              <input type="text" id="input_senderAccount" class="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md text-slate-800 focus:border-blue-600 focus:bg-white focus:outline-none" placeholder="1234****56" />
+            </div>
+
+            <!-- Receiver Name -->
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 mb-0.5">Nama Penerima</label>
+              <input type="text" id="input_receiverName" class="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md text-slate-800 focus:border-blue-600 focus:bg-white focus:outline-none" placeholder="Nama Penerima / Merchant" />
+            </div>
+
+            <!-- Receiver Account -->
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 mb-0.5">No. Rek / Akun Penerima</label>
+              <input type="text" id="input_receiverAccount" class="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md text-slate-800 focus:border-blue-600 focus:bg-white focus:outline-none" placeholder="987654321" />
+            </div>
+
+            <!-- Amount -->
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 mb-0.5">Nominal Transaksi</label>
+              <input type="text" id="input_amount" class="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md text-slate-800 focus:border-blue-600 focus:bg-white focus:outline-none" placeholder="Rp 150.000" />
+            </div>
+
+            <!-- Admin Fee -->
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 mb-0.5">Biaya Admin</label>
+              <input type="text" id="input_adminFee" class="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md text-slate-800 focus:border-blue-600 focus:bg-white focus:outline-none" placeholder="Rp 0" />
+            </div>
+
+            <!-- Total Amount -->
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 mb-0.5">Total Pembayaran</label>
+              <input type="text" id="input_totalAmount" class="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md text-blue-600 font-bold focus:border-blue-600 focus:bg-white focus:outline-none" placeholder="Rp 150.000" />
+            </div>
+
+            <!-- Status -->
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 mb-0.5">Status Transaksi</label>
+              <select id="input_status" class="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md text-slate-800 focus:border-blue-600 focus:bg-white focus:outline-none">
+                <option value="BERHASIL">BERHASIL</option>
+                <option value="PENDING">PENDING</option>
+                <option value="GAGAL">GAGAL</option>
+              </select>
+            </div>
+
+            <!-- Notes -->
+            <div class="sm:col-span-2">
+              <label class="block text-[11px] font-semibold text-slate-500 mb-0.5">Catatan / Keterangan</label>
+              <input type="text" id="input_notes" class="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md text-slate-800 focus:border-blue-600 focus:bg-white focus:outline-none" placeholder="Catatan tambahan..." />
+            </div>
+          </div>
+        </div>
+
+        <!-- Custom Store & Header Configuration -->
+        <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-2.5">
+          <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+            <i data-lucide="store" class="w-4 h-4 text-emerald-600"></i>
+            <span>Header & Footer Toko / Kasir</span>
+          </h3>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 mb-0.5">Nama Toko / Usaha</label>
+              <input type="text" id="storeHeaderInput" value="TOKO BAROKAH JAYA" class="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md text-slate-800 focus:border-blue-600 focus:bg-white focus:outline-none" placeholder="Nama Toko..." />
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 mb-0.5">Nama Kasir / Operator</label>
+              <input type="text" id="cashierNameInput" value="Kasir 01" class="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md text-slate-800 focus:border-blue-600 focus:bg-white focus:outline-none" placeholder="Kasir..." />
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 mb-0.5">Pesan Footer</label>
+              <input type="text" id="storeFooterInput" value="Terima kasih telah berbelanja!" class="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md text-slate-800 focus:border-blue-600 focus:bg-white focus:outline-none" placeholder="Pesan footer..." />
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Right Column: Thermal Printer Action & Live Preview (5 cols) -->
+      <div class="lg:col-span-5 space-y-4">
+
+        <!-- Printer Controls Card -->
+        <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="bluetooth" class="w-4 h-4 text-blue-600"></i>
+              <span>3. Kontrol Printer Thermal</span>
+            </h3>
+          </div>
+
+          <!-- Paper Width Selector -->
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 mb-0.5">Lebar Kertas Printer</label>
+            <select id="paperSizeSelect" class="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md text-slate-800 focus:border-blue-600 focus:bg-white focus:outline-none font-semibold">
+              <option value="58">Standard 58mm (32 Karakter/Baris)</option>
+              <option value="80">Wide 80mm (48 Karakter/Baris)</option>
+            </select>
+          </div>
+
+          <!-- Connect Printer Button -->
+          <button id="btnConnectPrinter" class="w-full px-3 py-2 text-xs font-semibold rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-sm flex items-center justify-center gap-1.5">
+            <i data-lucide="bluetooth-searching" class="w-3.5 h-3.5"></i>
+            <span>Hubungkan Printer Bluetooth</span>
+          </button>
+
+          <!-- Main Print Action -->
+          <div class="space-y-1.5 pt-2 border-t border-slate-200">
+            <button id="btnPrintReceipt" class="w-full px-4 py-2.5 text-sm font-bold rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-md flex items-center justify-center gap-2">
+              <i data-lucide="printer" class="w-4 h-4"></i>
+              <span>CETAK SEKARANG (ESC/POS)</span>
+            </button>
+
+            <button id="btnPrintTest" class="w-full px-3 py-1.5 text-xs font-semibold rounded-md text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-all flex items-center justify-center gap-1.5">
+              <i data-lucide="file-check" class="w-3.5 h-3.5"></i>
+              <span>Tes Cetak Halaman Uji</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Live Thermal Preview Frame -->
+        <div class="bg-slate-300 border border-slate-300 rounded-xl p-4 shadow-sm space-y-2">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="eye" class="w-3.5 h-3.5 text-slate-800"></i>
+              <span>Preview Cetak (Thermal)</span>
+            </h3>
+            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 font-semibold">ESC/POS</span>
+          </div>
+
+          <div class="flex justify-center py-3 px-1">
+            <!-- Digital Paper Receipt Component -->
+            <div id="thermalPreview" class="receipt-paper font-mono text-xs p-4 rounded-sm transition-all duration-300 leading-relaxed max-w-[220px] w-full">
+              <!-- Content rendered dynamically via app.js -->
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- Status Bar Footer -->
+  <footer class="bg-white border-t border-slate-200 py-2 px-4 text-xs text-slate-500 fixed bottom-0 left-0 right-0 z-20 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+      <span>Web Bluetooth ESC/POS Engine Active</span>
+    </div>
+    <div class="hidden sm:block text-[11px] text-slate-400">
+      Gemini Vision 3.6 Flash | Progressive Web App
+    </div>
+  </footer>
+
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+    <div class="bg-white border border-slate-200 rounded-xl p-5 max-w-xs w-full text-center space-y-3 shadow-xl">
+      <div class="inline-flex p-2.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100 animate-spin">
+        <i data-lucide="loader-2" class="w-6 h-6"></i>
+      </div>
+      <div>
+        <h4 id="loadingText" class="font-bold text-slate-800 text-sm">Memproses...</h4>
+        <p class="text-[11px] text-slate-500 mt-0.5">Menganalisis gambar resi dengan Gemini AI Vision.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal (Custom Gemini API Key) -->
+  <div id="settingsModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white border border-slate-200 rounded-xl p-5 max-w-md w-full space-y-3 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+        <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+          <i data-lucide="key" class="w-4 h-4 text-amber-500"></i>
+          <span>Pengaturan API Key Gemini</span>
+        </h3>
+        <button id="closeSettingsBtn" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="space-y-2">
+        <p class="text-xs text-slate-500">
+          Aplikasi menggunakan API Key server bawaan secara otomatis. Anda juga dapat memasukkan API Key pribadi jika diperlukan:
+        </p>
+
+        <div>
+          <label class="block text-[11px] font-semibold text-slate-600 mb-1">Gemini API Key (Opsional)</label>
+          <input type="password" id="apiKeyInput" class="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md text-slate-800 focus:border-blue-600 focus:bg-white focus:outline-none font-mono" placeholder="AIzaSy..." />
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2">
+        <button id="saveApiKeyBtn" class="px-3 py-1.5 text-xs font-semibold rounded-md bg-blue-600 hover:bg-blue-700 text-white transition-all">
+          Simpan Key
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Help / Bluetooth Connection Guide Modal -->
+  <div id="helpModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white border border-slate-200 rounded-xl p-5 max-w-md w-full space-y-3 shadow-2xl max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+        <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+          <i data-lucide="help-circle" class="w-4 h-4 text-blue-600"></i>
+          <span>Panduan Penggunaan & Bluetooth HP</span>
+        </h3>
+        <button id="closeHelpBtn" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 text-xs text-slate-600 leading-relaxed">
+        <div>
+          <h4 class="font-bold text-slate-800 mb-0.5 text-xs flex items-center gap-1">
+            <i data-lucide="smartphone" class="w-3.5 h-3.5 text-emerald-600"></i>
+            <span>1. Koneksi Printer Thermal Bluetooth</span>
+          </h4>
+          <ul class="list-disc list-inside space-y-0.5 text-slate-500 pl-1">
+            <li>Nyalakan Bluetooth dan printer thermal Anda (seperti PT-210, MPT-II, RPP02N, GOOJPRT, dll).</li>
+            <li><strong>Android (Chrome):</strong> Tekan "Hubungkan Printer Bluetooth", pilih nama printer, lalu hubungkan.</li>
+            <li><strong>iOS Safari:</strong> Untuk iPhone/iPad, gunakan aplikasi browser berkemampuan WebBLE seperti <strong>Blueify</strong> atau <strong>WebBLE</strong> dari App Store.</li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 class="font-bold text-slate-800 mb-0.5 text-xs flex items-center gap-1">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-500"></i>
+            <span>2. Pembacaan Resi dengan Gemini AI Vision</span>
+          </h4>
+          <p class="text-slate-500">
+            Model <strong>Gemini 3.6 Flash</strong> membaca detail resi bank (BCA, Mandiri, BRI, QRIS, DANA, dll) secara terstruktur.
+          </p>
+        </div>
+
+        <div>
+          <h4 class="font-bold text-slate-800 mb-0.5 text-xs flex items-center gap-1">
+            <i data-lucide="printer" class="w-3.5 h-3.5 text-blue-600"></i>
+            <span>3. Direct ESC/POS Command</span>
+          </h4>
+          <p class="text-slate-500">
+            Mengirim perintah byte ESC/POS langsung ke printer tanpa aplikasi perantara tambahan.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="fixed bottom-10 right-4 z-50 flex flex-col gap-1.5 max-w-xs w-full pointer-events-none"></div>
+
+  <!-- Initialize Lucide Icons & Main App -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+    });
+  </script>
+  <script type="module" src="/printer.js"></script>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
