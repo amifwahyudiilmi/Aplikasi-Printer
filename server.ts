@@ -31,14 +31,7 @@ app.post('/api/parse-receipt', async (req, res) => {
       });
     }
 
-    const ai = new GoogleGenAI({
-      apiKey,
-      httpOptions: {
-        headers: {
-          'User-Agent': 'aistudio-build',
-        },
-      },
-    });
+    const ai = new GoogleGenAI({apiKey});
 
     const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
 
