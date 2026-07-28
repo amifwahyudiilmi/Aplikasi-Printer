@@ -31,7 +31,14 @@ app.post('/api/parse-receipt', async (req, res) => {
       });
     }
 
-    const ai = new GoogleGenAI({apiKey: process.env.GEMINI_API_KEY,});
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        },
+      },
+    });
 
     const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
 
@@ -55,20 +62,9 @@ Data yang WAJIB diekstrak:
 13. notes: Catatan / Keterangan / Berita Transfer jika ada. Jika tidak ada, isikan "-".
 
 Sangat penting: Objek JSON harus valid tanpa teks markdown pembungkus tambahan.`;
-     const response = await ai.models.generateContent({
-       model: "gemini-2.5-flash",
-       contents: [
-         {
-           text: "Halo"
-         }
-       ]
-     });
-
-       console.log(response.text);
-
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.6-flash',
       contents: {
         parts: [
           {
@@ -86,7 +82,10 @@ Sangat penting: Objek JSON harus valid tanpa teks markdown pembungkus tambahan.`
         systemInstruction,
         responseMimeType: 'application/json',
         responseSchema: {
-           transactionType: { type: Type.STRING },
+          type: Type.OBJECT,
+          properties: {
+            bankName: { type: Type.STRING },
+            transactionType: { type: Type.STRING },
             dateTime: { type: Type.STRING },
             refNumber: { type: Type.STRING },
             senderName: { type: Type.STRING },
@@ -116,10 +115,7 @@ Sangat penting: Objek JSON harus valid tanpa teks markdown pembungkus tambahan.`
           ],
         },
       },
-    });     type: Type.OBJECT,
-          properties: {
-            bankName: { type: Type.STRING },
-      
+    });
 
     const jsonText = response.text || '{}';
     let parsedData = {};
@@ -166,4 +162,4 @@ async function startServer() {
   });
 }
 
-startServer():\;
+startServer();
