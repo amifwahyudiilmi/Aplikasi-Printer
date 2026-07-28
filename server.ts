@@ -55,16 +55,17 @@ Data yang WAJIB diekstrak:
 13. notes: Catatan / Keterangan / Berita Transfer jika ada. Jika tidak ada, isikan "-".
 
 Sangat penting: Objek JSON harus valid tanpa teks markdown pembungkus tambahan.`;
-const response = await ai.models.generateContent({
-  model: "gemini-2.5-flash",
-  contents: [
-    {
-      text: "Halo"
-    }
-  ]
-});
+     const response = await ai.models.generateContent({
+       model: "gemini-2.5-flash",
+       contents: [
+         {
+           text: "Halo"
+         }
+       ]
+     });
 
-console.log(response.text);
+       console.log(response.text);
+
 
     // const response = await ai.models.generateContent({
     //   model: 'gemini-2.5-flash',
@@ -115,7 +116,7 @@ console.log(response.text);
     //       ],
     //     },
     //   },
-    });     type: Type.OBJECT,
+    // });     type: Type.OBJECT,
           properties: {
             bankName: { type: Type.STRING },
       
