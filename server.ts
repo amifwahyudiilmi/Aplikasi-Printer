@@ -1,5 +1,7 @@
 import dotenv from 'dotenv';
-dotenv.config(); // <--- Memuat isi file .env ke process.env
+// Load local environment overrides first, then fallback to .env.
+dotenv.config({ path: '.env.local' });
+dotenv.config();
 import express from 'express';
 import path from 'path';
 import { GoogleGenAI, Type } from '@google/genai';
