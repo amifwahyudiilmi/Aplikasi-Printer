@@ -4,7 +4,7 @@ dotenv.config({ path: '.env.local' });
 dotenv.config();
 import express from 'express';
 import path from 'path';
-import { GoogleGenAI, Type } from '@google/genai';
+import { GoogleGenAI, Type, setDefaultBaseUrls } from '@google/genai';
 import { createServer as createViteServer } from 'vite';
 
 const app = express();
@@ -33,9 +33,19 @@ app.post('/api/parse-receipt', async (req, res) => {
       });
     }
 
+    if (!apiKey.startsWith('AQ.')) {
+      return res.status(401).json({
+        error: 'Kunci API tidak valid. Harap gunakan Gemini Developer API key (dimulai dengan "AQ.") dan bukan OAuth token atau Google Cloud API key.',
+      });
+    }
+
+    setDefaultBaseUrls({ geminiUrl: 'https://gemini.google.com' });
+
     const ai = new GoogleGenAI({
       apiKey,
       httpOptions: {
+        baseUrl: 'https://gemini.google.com',
+        apiVersion: 'v1beta',
         headers: {
           'User-Agent': 'aistudio-build',
         },
@@ -138,8 +148,12 @@ Sangat penting: Objek JSON harus valid tanpa teks markdown pembungkus tambahan.`
     });
   } catch (error: any) {
     console.error('Error parsing receipt with Gemini:', error);
+    const errorMessage = error?.message || 'Gagal memproses gambar resi dengan Gemini AI.';
+    const authHint = errorMessage.includes('401') || errorMessage.includes('UNAUTHENTICATED')
+      ? 'Pastikan Anda menggunakan Gemini Developer API key (AQ... format), bukan Google Cloud API key atau OAuth token.'
+      : null;
     return res.status(500).json({
-      error: error.message || 'Gagal memproses gambar resi dengan Gemini AI.',
+      error: authHint ? `${errorMessage} ${authHint}` : errorMessage,
     });
   }
 });
