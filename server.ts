@@ -55,60 +55,70 @@ Data yang WAJIB diekstrak:
 13. notes: Catatan / Keterangan / Berita Transfer jika ada. Jika tidak ada, isikan "-".
 
 Sangat penting: Objek JSON harus valid tanpa teks markdown pembungkus tambahan.`;
+const response = await ai.models.generateContent({
+  model: "gemini-2.5-flash",
+  contents: [
+    {
+      text: "Halo"
+    }
+  ]
+});
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: {
-        parts: [
-          {
-            inlineData: {
-              data: cleanBase64,
-              mimeType: mimeType || 'image/png',
-            },
-          },
-          {
-            text: 'Analisis gambar resi ini dan ekstrak seluruh data transaksi ke dalam format JSON.',
-          },
-        ],
-      },
-      config: {
-        systemInstruction,
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
+console.log(response.text);
+
+    // const response = await ai.models.generateContent({
+    //   model: 'gemini-2.5-flash',
+    //   contents: {
+    //     parts: [
+    //       {
+    //         inlineData: {
+    //           data: cleanBase64,
+    //           mimeType: mimeType || 'image/png',
+    //         },
+    //       },
+    //       {
+    //         text: 'Analisis gambar resi ini dan ekstrak seluruh data transaksi ke dalam format JSON.',
+    //       },
+    //     ],
+    //   },
+    //   config: {
+    //     systemInstruction,
+    //     responseMimeType: 'application/json',
+    //     responseSchema: {
+    //        transactionType: { type: Type.STRING },
+    //         dateTime: { type: Type.STRING },
+    //         refNumber: { type: Type.STRING },
+    //         senderName: { type: Type.STRING },
+    //         senderAccount: { type: Type.STRING },
+    //         receiverName: { type: Type.STRING },
+    //         receiverAccount: { type: Type.STRING },
+    //         amount: { type: Type.STRING },
+    //         adminFee: { type: Type.STRING },
+    //         totalAmount: { type: Type.STRING },
+    //         status: { type: Type.STRING },
+    //         notes: { type: Type.STRING },
+    //       },
+    //       required: [
+    //         'bankName',
+    //         'transactionType',
+    //         'dateTime',
+    //         'refNumber',
+    //         'senderName',
+    //         'senderAccount',
+    //         'receiverName',
+    //         'receiverAccount',
+    //         'amount',
+    //         'adminFee',
+    //         'totalAmount',
+    //         'status',
+    //         'notes',
+    //       ],
+    //     },
+    //   },
+    });     type: Type.OBJECT,
           properties: {
             bankName: { type: Type.STRING },
-            transactionType: { type: Type.STRING },
-            dateTime: { type: Type.STRING },
-            refNumber: { type: Type.STRING },
-            senderName: { type: Type.STRING },
-            senderAccount: { type: Type.STRING },
-            receiverName: { type: Type.STRING },
-            receiverAccount: { type: Type.STRING },
-            amount: { type: Type.STRING },
-            adminFee: { type: Type.STRING },
-            totalAmount: { type: Type.STRING },
-            status: { type: Type.STRING },
-            notes: { type: Type.STRING },
-          },
-          required: [
-            'bankName',
-            'transactionType',
-            'dateTime',
-            'refNumber',
-            'senderName',
-            'senderAccount',
-            'receiverName',
-            'receiverAccount',
-            'amount',
-            'adminFee',
-            'totalAmount',
-            'status',
-            'notes',
-          ],
-        },
-      },
-    });
+      
 
     const jsonText = response.text || '{}';
     let parsedData = {};
