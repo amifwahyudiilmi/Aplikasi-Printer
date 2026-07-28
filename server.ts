@@ -4,7 +4,7 @@ dotenv.config({ path: '.env.local' });
 dotenv.config();
 import express from 'express';
 import path from 'path';
-import { GoogleGenAI, Type, setDefaultBaseUrls } from '@google/genai';
+import { GoogleGenAI, Type } from '@google/genai';
 import { createServer as createViteServer } from 'vite';
 
 const app = express();
@@ -39,13 +39,9 @@ app.post('/api/parse-receipt', async (req, res) => {
       });
     }
 
-    setDefaultBaseUrls({ geminiUrl: 'https://gemini.google.com' });
-
     const ai = new GoogleGenAI({
       apiKey,
       httpOptions: {
-        baseUrl: 'https://gemini.google.com',
-        apiVersion: 'v1beta',
         headers: {
           'User-Agent': 'aistudio-build',
         },
@@ -76,7 +72,7 @@ Data yang WAJIB diekstrak:
 Sangat penting: Objek JSON harus valid tanpa teks markdown pembungkus tambahan.`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3.6-flash',
+      model: 'gemini-3.6',
       contents: {
         parts: [
           {
@@ -152,8 +148,12 @@ Sangat penting: Objek JSON harus valid tanpa teks markdown pembungkus tambahan.`
     const authHint = errorMessage.includes('401') || errorMessage.includes('UNAUTHENTICATED')
       ? 'Pastikan Anda menggunakan Gemini Developer API key (AQ... format), bukan Google Cloud API key atau OAuth token.'
       : null;
+    const modelHint = errorMessage.includes('404')
+      ? 'Periksa kembali nama model Gemini. Coba gunakan model yang tersedia pada Gemini Developer API, seperti gemini-3.6.'
+      : null;
+    const hints = [authHint, modelHint].filter(Boolean).join(' ');
     return res.status(500).json({
-      error: authHint ? `${errorMessage} ${authHint}` : errorMessage,
+      error: hints ? `${errorMessage} ${hints}` : errorMessage,
     });
   }
 });
